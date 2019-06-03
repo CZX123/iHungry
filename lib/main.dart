@@ -11,10 +11,6 @@ import 'eatingOutDebug.dart';
 
 const Color kColor1 = Color(0xFFDA4453);
 const Color kColor2 = Color(0xFF89216B);
-const Color kCookingColor1 = Color(0xFF56AB2F);
-const Color kCookingColor2 = Color(0xFFA8E063);
-const Color kEatingOutColor1 = Color(0xFFF12711);
-const Color kEatingOutColor2 = Color(0xFFF5AF19);
 
 void main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -84,7 +80,9 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     super.initState();
     getApplicationDocumentsDirectory().then((dir) {
       File cookingFile = File('${dir.path}/cookingData.json');
+      File cookingRecipesFile = File('${dir.path}/cookingRecipes.json');
       File eatingOutFile = File('${dir.path}/eatingOutData.json');
+      CookingData cookingData = Provider.of<CookingData>(context);
       DateTime lastMeal;
       if (cookingFile.existsSync()) {
         Map<String, dynamic> cookingFileContents =
@@ -92,14 +90,21 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
         if (cookingFileContents['history'].length > 0)
           lastMeal =
               DateTime.parse(cookingFileContents['history'].keys.toList().last);
-        Provider.of<CookingData>(context)
-            .changeRatio(cookingFileContents['ratio']);
+        cookingData.changeRatio(cookingFileContents['ratio']);
       } else {
         Map<String, dynamic> cookingFileContents = {
           'ratio': 1.0,
           'history': {},
         };
         cookingFile.writeAsStringSync(jsonEncode(cookingFileContents));
+      }
+      if (cookingRecipesFile.existsSync()) {
+        Map<String, dynamic> cookingRecipes =
+            jsonDecode(cookingRecipesFile.readAsStringSync());
+        cookingData.changeRecipes(cookingRecipes);
+      } else {
+        Map<String, dynamic> cookingRecipes = cookingData.recipes;
+        cookingRecipesFile.writeAsStringSync(jsonEncode(cookingRecipes));
       }
       if (eatingOutFile.existsSync()) {
         Map<String, dynamic> eatingOutFileContents =

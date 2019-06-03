@@ -6,7 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'eatingOut.dart';
 
 class EatingOutDebugScreen extends StatefulWidget {
-  EatingOutDebugScreen({Key key}) : super(key: key);
+  EatingOutDebugScreen();
 
   _EatingOutDebugScreenState createState() => _EatingOutDebugScreenState();
 }

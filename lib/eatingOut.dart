@@ -5,9 +5,13 @@ import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'cooking.dart';
 
+const Color kEatingOutColor1 = Color(0xFFF12711);
+const Color kEatingOutColor2 = Color(0xFFF5AF19);
+
 class EatingOutData extends ChangeNotifier {
   EatingOutData();
   DateTime _lastMeal = DateTime.now().subtract(Duration(hours: 6));
+
   void changeLastMeal(DateTime newTime) {
     _lastMeal = newTime;
     notifyListeners();

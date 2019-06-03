@@ -7,7 +7,7 @@ import 'cooking.dart';
 import 'eatingOut.dart';
 
 class CookingDebugScreen extends StatefulWidget {
-  CookingDebugScreen({Key key}) : super(key: key);
+  CookingDebugScreen();
 
   _CookingDebugScreenState createState() => _CookingDebugScreenState();
 }

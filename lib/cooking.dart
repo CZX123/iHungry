@@ -6,38 +6,87 @@ import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'sliderTheme.dart';
 import 'eatingOut.dart';
+import 'editRecipe.dart';
 
-const Color kCookingColor1 = Color(0xFF3498DB);
-const Color kCookingColor2 = Color(0xFF2C3E50);
-const List<String> foodGroups = [
-  'Food 1',
-  'Food 2',
-  'Food 3',
-  'Food 4',
-  'Food 5',
-  'Food 6',
+const Color kCookingColor1 = Color(0xFF56AB2F);
+const Color kCookingColor2 = Color(0xFFA8E063);
+const List<Map<String, dynamic>> friedRiceRecipe = [
+  {
+    'name': 'butter',
+    'value': 0.5,
+    'unit': 'tablespoon',
+  },
+  {
+    'name': 'chopped onions',
+    'value': 0.5,
+    'unit': 'cup',
+  },
+  {
+    'name': 'clove garlic, minced',
+    'value': 1,
+    'unit': '',
+  },
+  {
+    'name': 'cooked rice',
+    'value': 190,
+    'unit': 'g',
+  },
+  {
+    'name': 'large egg',
+    'value': 1,
+    'unit': '',
+  },
+  {
+    'name': 'peas',
+    'value': 0.5,
+    'unit': 'cup',
+  },
+  {
+    'name': 'corn',
+    'value': 0.5,
+    'unit': 'cup',
+  },
+  {
+    'name': 'soy sauce',
+    'value': 1,
+    'unit': 'tablespoon',
+  },
 ];
 
 class CookingData extends ChangeNotifier {
   CookingData();
-  double _ratio = 1.0;
-  Map<String, dynamic> _data = {
-    'hunger': 0.0,
-    'suggestions': <String, double>{},
-    'feedback': 0.5,
+  double _ratio = 1;
+  double _hunger = 0;
+  double _feedback = 0.5;
+  Map<String, dynamic> _suggestions = {};
+  Map<String, dynamic> _recipes = {
+    'Fried Rice': friedRiceRecipe,
   };
 
   void resetData() {
-    _data = {
-      'hunger': 0.0,
-      'suggestions': <String, double>{},
-      'feedback': 0.5,
-    };
+    _hunger = 0;
+    _feedback = 0.5;
+    _suggestions = {};
     notifyListeners();
   }
 
-  void editData(String key, dynamic value) {
-    _data.addAll({key: value});
+  void changeRecipes(Map<String, dynamic> newRecipes) {
+    _recipes = newRecipes;
+    notifyListeners();
+  }
+
+  void changeSuggestions(Map<String, dynamic> newSuggestions) {
+    _suggestions = newSuggestions;
+    notifyListeners();
+  }
+
+  void changeHunger(double newHunger) {
+    _hunger = newHunger;
+    notifyListeners();
+  }
+
+  void changeFeedback(double newFeedback) {
+    _feedback = newFeedback;
     notifyListeners();
   }
 
@@ -51,15 +100,22 @@ class CookingData extends ChangeNotifier {
       File cookingFile = File('${dir.path}/cookingData.json');
       Map<String, dynamic> cookingFileContents =
           jsonDecode(cookingFile.readAsStringSync());
-      changeRatio(_ratio + 0.2 - _data['feedback'] * 0.4);
+      changeRatio(_ratio + 0.2 - _feedback * 0.4);
       cookingFileContents['ratio'] = double.parse(_ratio.toStringAsFixed(1));
-      cookingFileContents['history'][DateTime.now().toString()] = _data;
+      cookingFileContents['history'][DateTime.now().toString()] = {
+        'hunger': _hunger,
+        'suggestions': _suggestions,
+        'feedback': _feedback,
+      };
       cookingFile.writeAsStringSync(jsonEncode(cookingFileContents));
     });
   }
 
-  Map<String, dynamic> get data => _data;
   double get ratio => _ratio;
+  double get hunger => _hunger;
+  double get feedback => _feedback;
+  Map<String, dynamic> get suggestions => _suggestions;
+  Map<String, dynamic> get recipes => _recipes;
 }
 
 typedef Widget BottomRowBuilder(Widget row);
@@ -98,8 +154,8 @@ class _CookingScreenState extends State<CookingScreen> {
   @override
   Widget build(BuildContext context) {
     CookingData cookingData = Provider.of<CookingData>(context);
-    nextDisabled = currentPage == 0 && cookingData.data['hunger'] == 0.0 ||
-        currentPage == 1 && cookingData.data['suggestions'].length == 0;
+    nextDisabled = currentPage == 0 && cookingData.hunger == 0.0 ||
+        currentPage == 1 && cookingData.suggestions.length == 0;
     return Stack(
       children: <Widget>[
         PageView(
@@ -195,7 +251,8 @@ class _CookingScreenState extends State<CookingScreen> {
                                 Navigator.pop(context);
                                 Navigator.pop(context);
                                 cookingData.saveData();
-                                Provider.of<EatingOutData>(context).changeLastMeal(DateTime.now());
+                                Provider.of<EatingOutData>(context)
+                                    .changeLastMeal(DateTime.now());
                               }
                             : () {
                                 if (currentPage != 3) {
@@ -259,7 +316,7 @@ class CookingFirstScreen extends StatelessWidget {
     ];
     String hungerLabel;
     CookingData cookingData = Provider.of<CookingData>(context);
-    double hungerValue = cookingData.data['hunger'];
+    double hungerValue = cookingData.hunger;
     switch ((hungerValue * 100).toInt()) {
       case 20:
         hungerLabel = hungerLabels[1];
@@ -327,21 +384,27 @@ class CookingFirstScreen extends StatelessWidget {
                   value: hungerValue,
                   divisions: 5,
                   onChanged: (newValue) {
-                    Map<String, double> suggestions =
-                        cookingData.data['suggestions'];
-                    suggestions.updateAll((key, value) {
-                      return double.parse(
-                          (newValue * cookingData.ratio / suggestions.length)
-                              .toStringAsFixed(2));
-                    });
-                    // Reorder the map and sort it by the order in foodGroups
-                    Map<String, double> sortedSuggestions = {};
-                    for (String i in foodGroups) {
-                      if (suggestions.containsKey(i))
-                        sortedSuggestions.addAll({i: suggestions[i]});
+                    cookingData.changeHunger(newValue);
+                    final Map<String, dynamic> suggestions =
+                        cookingData.suggestions;
+                    if (suggestions.length > 0) {
+                      final String dishName = suggestions.keys.toList()[0];
+                      final List<dynamic> ingredients =
+                          cookingData.recipes[dishName];
+                      final List<dynamic> updatedIngredients =
+                          ingredients.map((item) {
+                        num newIngredientValue = num.parse(
+                            (item['value'] * newValue * cookingData.ratio)
+                                .toStringAsFixed(2)); // * ratio
+                        return {
+                          'name': item['name'],
+                          'value': newIngredientValue,
+                          'unit': item['unit'],
+                        };
+                      }).toList();
+                      cookingData
+                          .changeSuggestions({dishName: updatedIngredients});
                     }
-                    cookingData.editData('hunger', newValue);
-                    cookingData.editData('suggestions', sortedSuggestions);
                   },
                 ),
               ),
@@ -358,8 +421,7 @@ class CookingSecondScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     CookingData cookingData = Provider.of<CookingData>(context);
-    Map<String, double> suggestions = cookingData.data['suggestions'];
-    double foodWidth = (MediaQuery.of(context).size.width - 80) / 3;
+    final Map<String, dynamic> recipes = cookingData.recipes;
     return Padding(
       padding: EdgeInsets.fromLTRB(0, MediaQuery.of(context).padding.top, 0,
           MediaQuery.of(context).padding.bottom + 48),
@@ -379,76 +441,46 @@ class CookingSecondScreen extends StatelessWidget {
             ),
           ),
           Container(
-            padding: EdgeInsets.fromLTRB(8, 0, 8, 0),
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 0),
             alignment: Alignment.center,
             child: Wrap(
               spacing: 16,
               runSpacing: 16,
               children: <Widget>[
-                for (String i in foodGroups)
-                  AnimatedContainer(
-                    duration: Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: suggestions.containsKey(i)
-                          ? Colors.white
-                          : Colors.white.withOpacity(0),
-                      borderRadius: BorderRadius.circular(6.0),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: ButtonTheme(
-                        colorScheme: suggestions.containsKey(i)
-                            ? ColorScheme.light()
-                            : ColorScheme.dark(),
-                        child: OutlineButton(
-                          padding: EdgeInsets.zero,
-                          highlightedBorderColor: Colors.lightGreenAccent,
-                          borderSide: BorderSide(
-                            color: Theme.of(context).disabledColor,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6.0),
-                          ),
-                          child: Container(
-                            height: 64.0,
-                            width: foodWidth,
-                            alignment: Alignment.center,
-                            child: AnimatedDefaultTextStyle(
-                              duration: Duration(milliseconds: 200),
-                              style:
-                                  Theme.of(context).textTheme.subhead.copyWith(
-                                        color: suggestions.containsKey(i)
-                                            ? Colors.green
-                                            : Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                              child: Text(i),
-                            ),
-                          ),
-                          onPressed: () {
-                            if (suggestions.containsKey(i))
-                              suggestions.remove(i);
-                            else
-                              suggestions.addAll({i: 0.0});
-                            suggestions.updateAll((key, value) {
-                              return double.parse((cookingData.data['hunger'] *
-                                      cookingData.ratio /
-                                      suggestions.length)
-                                  .toStringAsFixed(2));
-                            });
-                            // Reorder the map and sort it by the order in foodGroups
-                            Map<String, double> sortedSuggestions = {};
-                            for (String i in foodGroups) {
-                              if (suggestions.containsKey(i))
-                                sortedSuggestions.addAll({i: suggestions[i]});
-                            }
-                            cookingData.editData(
-                                'suggestions', sortedSuggestions);
-                          },
+                for (String dishName in recipes.keys)
+                  DishButton(
+                    dishName: dishName,
+                  ),
+                OutlineButton(
+                  highlightedBorderColor: Colors.lightGreenAccent,
+                  borderSide: BorderSide(
+                    color: Theme.of(context).disabledColor,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6.0),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Icon(
+                        Icons.add,
+                        color: Colors.white,
+                      ),
+                      Container(
+                        height: 48.0,
+                        padding: EdgeInsets.only(left: 8),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Add Dish',
+                          style: Theme.of(context).textTheme.subhead.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
+                  onPressed: () {},
+                ),
               ],
             ),
           ),
@@ -458,12 +490,235 @@ class CookingSecondScreen extends StatelessWidget {
   }
 }
 
+class DishButton extends StatefulWidget {
+  final String dishName;
+  const DishButton({@required this.dishName});
+
+  @override
+  _DishButtonState createState() => _DishButtonState();
+}
+
+class _DishButtonState extends State<DishButton> {
+  bool buttonPressed = false;
+  @override
+  Widget build(BuildContext context) {
+    CookingData cookingData = Provider.of<CookingData>(context);
+    final Map<String, dynamic> recipes = cookingData.recipes;
+    Map<String, dynamic> suggestions = cookingData.suggestions;
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: buttonPressed
+              ? Colors.lightGreenAccent
+              : Theme.of(context).disabledColor,
+        ),
+        color: suggestions.containsKey(widget.dishName)
+            ? Colors.white
+            : Colors.white.withOpacity(0),
+        borderRadius: BorderRadius.circular(6.0),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: ButtonTheme(
+          colorScheme: suggestions.containsKey(widget.dishName)
+              ? ColorScheme.light()
+              : ColorScheme.dark(),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(6.0),
+            child: Container(
+              padding: EdgeInsets.fromLTRB(16, 20, 16, 20),
+              child: AnimatedDefaultTextStyle(
+                duration: Duration(milliseconds: 200),
+                style: Theme.of(context).textTheme.subhead.copyWith(
+                      color: suggestions.containsKey(widget.dishName)
+                          ? Colors.green
+                          : Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                child: Text(widget.dishName),
+              ),
+            ),
+            onLongPress: () {
+              showGeneralDialog(
+                barrierLabel: 'Dismiss',
+                barrierDismissible: true,
+                transitionDuration: Duration(milliseconds: 200),
+                barrierColor: Colors.black.withOpacity(0.5),
+                context: context,
+                transitionBuilder: (context, anim1, anim2, child) =>
+                    FadeTransition(
+                      opacity: CurvedAnimation(
+                        parent: anim1,
+                        curve: Interval(0, 0.5),
+                      ),
+                      child: ScaleTransition(
+                        scale: Tween<double>(
+                          begin: 0.5,
+                          end: 1,
+                        ).animate(CurvedAnimation(
+                          parent: anim1,
+                          curve: Curves.fastLinearToSlowEaseIn,
+                        )),
+                        child: child,
+                      ),
+                    ),
+                pageBuilder: (context, anim1, anim2) => Theme(
+                      data: ThemeData.light(),
+                      child: Dialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                widget.dishName,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .display1
+                                    .copyWith(
+                                      color: kCookingColor1,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(
+                                height: 12,
+                              ),
+                              Text(
+                                'Ingredients',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .subhead
+                                    .copyWith(
+                                      fontSize: 18,
+                                      color: Colors.black87,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(
+                                height: 8,
+                              ),
+                              for (dynamic ingredient
+                                  in recipes[widget.dishName])
+                                Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 6),
+                                  child: Text(
+                                    '${ingredient['value']} ${ingredient['unit']}${ingredient['unit'] == '' ? '' : ' of '}${ingredient['name']}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .subhead
+                                        .copyWith(
+                                          fontSize: 18,
+                                          color: Colors.black87,
+                                        ),
+                                  ),
+                                ),
+                              const SizedBox(
+                                height: 8,
+                              ),
+                              OutlineButton(
+                                highlightedBorderColor: kCookingColor1,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6.0),
+                                ),
+                                child: Container(
+                                  height: 48.0,
+                                  alignment: Alignment.center,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: <Widget>[
+                                      Icon(
+                                        Icons.edit,
+                                        color: kCookingColor1,
+                                      ),
+                                      const SizedBox(
+                                        width: 12,
+                                      ),
+                                      Text(
+                                        'Edit Ingredients',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .subhead
+                                            .copyWith(
+                                              color: kCookingColor1,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        fullscreenDialog: true,
+                                        builder: (_) => EditRecipeScreen(
+                                              dishName: widget.dishName,
+                                            ),
+                                      ));
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+              );
+              setState(() {
+                buttonPressed = false;
+              });
+            },
+            onTapCancel: () {
+              setState(() {
+                buttonPressed = false;
+              });
+            },
+            onTapDown: (_) {
+              setState(() {
+                buttonPressed = true;
+              });
+            },
+            onTap: () {
+              setState(() {
+                buttonPressed = false;
+              });
+              if (suggestions.containsKey(widget.dishName))
+                suggestions = {};
+              else {
+                final List<dynamic> ingredients = recipes[widget.dishName];
+                final List<dynamic> updatedIngredients =
+                    ingredients.map((item) {
+                  num newIngredientValue = num.parse(
+                      (item['value'] * cookingData.hunger * cookingData.ratio)
+                          .toStringAsFixed(2));
+                  return {
+                    'name': item['name'],
+                    'value': newIngredientValue,
+                    'unit': item['unit'],
+                  };
+                }).toList();
+                suggestions = {widget.dishName: updatedIngredients};
+              }
+              cookingData.changeSuggestions(suggestions);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class CookingThirdScreen extends StatelessWidget {
   const CookingThirdScreen();
   @override
   Widget build(BuildContext context) {
-    Map<String, double> foodSuggestions =
-        Provider.of<CookingData>(context).data['suggestions'];
+    Map<String, dynamic> suggestions =
+        Provider.of<CookingData>(context).suggestions;
     return Padding(
       padding: EdgeInsets.fromLTRB(0, MediaQuery.of(context).padding.top, 0,
           MediaQuery.of(context).padding.bottom + 48),
@@ -483,21 +738,24 @@ class CookingThirdScreen extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            alignment: Alignment.center,
+            padding: EdgeInsets.symmetric(
+                horizontal: MediaQuery.of(context).size.width / 10),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                for (String i in foodSuggestions.keys)
-                  Text(
-                    // Edit the equation here
-                    '${foodSuggestions[i]} servings of $i',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.display1.copyWith(
-                          height: 1.2,
-                          fontSize: 28,
-                          color: Colors.white,
-                        ),
-                  ),
+                if (suggestions.length > 0)
+                  for (dynamic ingredient in suggestions.values.toList()[0])
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: Text(
+                        '${ingredient['value']} ${ingredient['unit']}${ingredient['unit'] == '' ? '' : ' of '}${ingredient['name']}',
+                        style: Theme.of(context).textTheme.display1.copyWith(
+                              height: 0.8,
+                              fontSize: 24,
+                              color: Colors.white,
+                            ),
+                      ),
+                    ),
               ],
             ),
           ),
@@ -530,7 +788,7 @@ class CookingFourthScreen extends StatelessWidget {
     ];
     String feedbackLabel;
     CookingData cookingData = Provider.of<CookingData>(context);
-    double feedbackValue = cookingData.data['feedback'];
+    double feedbackValue = cookingData.feedback;
     switch ((feedbackValue * 100).toInt()) {
       case 25:
         feedbackLabel = feedbackLabels[1];
@@ -594,7 +852,7 @@ class CookingFourthScreen extends StatelessWidget {
                   value: feedbackValue,
                   divisions: 4,
                   onChanged: (newValue) {
-                    cookingData.editData('feedback', newValue);
+                    cookingData.changeFeedback(newValue);
                   },
                 ),
               ),
