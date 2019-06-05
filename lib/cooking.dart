@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,13 @@ import 'package:path_provider/path_provider.dart';
 import 'sliderTheme.dart';
 import 'eatingOut.dart';
 import 'editRecipe.dart';
+
+String encode(dynamic value) => jsonEncode(value);
+
+List<Map<String, dynamic>> decode(String string) =>
+    List<Map<String, dynamic>>.from(jsonDecode(string));
+
+int increment(int old) => old + 1;
 
 const Color kCookingColor1 = Color(0xFF56AB2F);
 const Color kCookingColor2 = Color(0xFFA8E063);
@@ -63,6 +72,13 @@ class CookingData extends ChangeNotifier {
     'Fried Rice': friedRiceRecipe,
   };
 
+  void resetRecipes() {
+    _recipes = {
+      'Fried Rice': friedRiceRecipe,
+    };
+    notifyListeners();
+  }
+
   void resetData() {
     _hunger = 0;
     _feedback = 0.5;
@@ -70,8 +86,14 @@ class CookingData extends ChangeNotifier {
     notifyListeners();
   }
 
-  void changeRecipes(Map<String, dynamic> newRecipes) {
+  void changeRecipes(Map<String, dynamic> newRecipes, {bool initial = false}) {
     _recipes = newRecipes;
+    if (!initial) {
+      getApplicationDocumentsDirectory().then((dir) {
+        File cookingRecipesFile = File('${dir.path}/cookingRecipes.json');
+        cookingRecipesFile.writeAsStringSync(jsonEncode(newRecipes));
+      });
+    }
     notifyListeners();
   }
 
@@ -186,97 +208,115 @@ class _CookingScreenState extends State<CookingScreen> {
                   width: 24,
                 ),
                 Expanded(
-                  child: OutlineButton(
-                    highlightedBorderColor: Colors.lightGreenAccent,
-                    borderSide: BorderSide(
-                      color: Theme.of(context).disabledColor,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6.0),
-                    ),
-                    child: Container(
-                      height: 48.0,
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Previous',
-                        style: Theme.of(context).textTheme.subhead.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: 5,
+                        sigmaY: 5,
+                      ),
+                      child: OutlineButton(
+                        highlightedBorderColor: Colors.lightGreenAccent,
+                        borderSide: BorderSide(
+                          color: Theme.of(context).disabledColor,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6.0),
+                        ),
+                        child: Container(
+                          height: 48.0,
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Previous',
+                            style: Theme.of(context).textTheme.subhead.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
                   ),
                 ),
                 const SizedBox(
                   width: 24,
                 ),
                 Expanded(
-                  child: OutlineButton(
-                    highlightedBorderColor: Colors.lightGreenAccent,
-                    borderSide: BorderSide(
-                      color: Theme.of(context).disabledColor,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6.0),
-                    ),
-                    child: Container(
-                      height: 48.0,
-                      alignment: Alignment.center,
-                      child: AnimatedDefaultTextStyle(
-                        duration: Duration(milliseconds: 200),
-                        style: Theme.of(context).textTheme.subhead.copyWith(
-                              color: nextDisabled
-                                  ? Theme.of(context).disabledColor
-                                  : Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                        child: Text(
-                          currentPage == 3 ? 'Submit' : 'Next',
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: 5,
+                        sigmaY: 5,
+                      ),
+                      child: OutlineButton(
+                        highlightedBorderColor: Colors.lightGreenAccent,
+                        borderSide: BorderSide(
+                          color: Theme.of(context).disabledColor,
                         ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6.0),
+                        ),
+                        child: Container(
+                          height: 48.0,
+                          alignment: Alignment.center,
+                          child: AnimatedDefaultTextStyle(
+                            duration: Duration(milliseconds: 200),
+                            style: Theme.of(context).textTheme.subhead.copyWith(
+                                  color: nextDisabled
+                                      ? Theme.of(context).disabledColor
+                                      : Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                            child: Text(
+                              currentPage == 3 ? 'Submit' : 'Next',
+                            ),
+                          ),
+                        ),
+                        onPressed: nextDisabled
+                            ? null
+                            : currentPage == 3
+                                ? () {
+                                    widget.animationController
+                                        .addStatusListener(onDataSave);
+                                    savingData = true;
+                                    Navigator.pop(context);
+                                    Navigator.pop(context);
+                                    Navigator.pop(context);
+                                    Navigator.pop(context);
+                                    cookingData.saveData();
+                                    Provider.of<EatingOutData>(context)
+                                        .changeLastMeal(DateTime.now());
+                                  }
+                                : () {
+                                    if (currentPage != 3) {
+                                      currentPage += 1;
+                                      ModalRoute.of(context)
+                                          .addLocalHistoryEntry(
+                                              LocalHistoryEntry(
+                                        onRemove: () {
+                                          if (!savingData) {
+                                            pageController.previousPage(
+                                              duration:
+                                                  Duration(milliseconds: 200),
+                                              curve: Curves.easeInOut,
+                                            );
+                                            currentPage -= 1;
+                                            setState(() {});
+                                          }
+                                        },
+                                      ));
+                                    }
+                                    pageController.nextPage(
+                                      duration: Duration(milliseconds: 200),
+                                      curve: Curves.easeInOut,
+                                    );
+                                    setState(() {});
+                                  },
                       ),
                     ),
-                    onPressed: nextDisabled
-                        ? null
-                        : currentPage == 3
-                            ? () {
-                                widget.animationController
-                                    .addStatusListener(onDataSave);
-                                savingData = true;
-                                Navigator.pop(context);
-                                Navigator.pop(context);
-                                Navigator.pop(context);
-                                Navigator.pop(context);
-                                cookingData.saveData();
-                                Provider.of<EatingOutData>(context)
-                                    .changeLastMeal(DateTime.now());
-                              }
-                            : () {
-                                if (currentPage != 3) {
-                                  currentPage += 1;
-                                  ModalRoute.of(context)
-                                      .addLocalHistoryEntry(LocalHistoryEntry(
-                                    onRemove: () {
-                                      if (!savingData) {
-                                        pageController.previousPage(
-                                          duration: Duration(milliseconds: 200),
-                                          curve: Curves.easeInOut,
-                                        );
-                                        currentPage -= 1;
-                                        setState(() {});
-                                      }
-                                    },
-                                  ));
-                                }
-                                pageController.nextPage(
-                                  duration: Duration(milliseconds: 200),
-                                  curve: Curves.easeInOut,
-                                );
-                                setState(() {});
-                              },
                   ),
                 ),
                 const SizedBox(
@@ -418,6 +458,7 @@ class CookingFirstScreen extends StatelessWidget {
 
 class CookingSecondScreen extends StatelessWidget {
   const CookingSecondScreen();
+
   @override
   Widget build(BuildContext context) {
     CookingData cookingData = Provider.of<CookingData>(context);
@@ -448,9 +489,7 @@ class CookingSecondScreen extends StatelessWidget {
               runSpacing: 16,
               children: <Widget>[
                 for (String dishName in recipes.keys)
-                  DishButton(
-                    dishName: dishName,
-                  ),
+                  DishButton(dishName: dishName),
                 OutlineButton(
                   highlightedBorderColor: Colors.lightGreenAccent,
                   borderSide: BorderSide(
@@ -479,7 +518,20 @@ class CookingSecondScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  onPressed: () {},
+                  onPressed: () async {
+                    EditRecipeData editRecipeData =
+                        Provider.of<EditRecipeData>(context);
+                    editRecipeData.resetData();
+                    await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          fullscreenDialog: true,
+                          builder: (_) => EditRecipeScreen(),
+                        ));
+                    Timer(Duration(milliseconds: 300), () {
+                      editRecipeData.resetData();
+                    });
+                  },
                 ),
               ],
             ),
@@ -500,8 +552,12 @@ class DishButton extends StatefulWidget {
 
 class _DishButtonState extends State<DishButton> {
   bool buttonPressed = false;
+  Timer resetDataTimer;
+  Map<String, dynamic> recipes;
+
   @override
   Widget build(BuildContext context) {
+    String name = widget.dishName;
     CookingData cookingData = Provider.of<CookingData>(context);
     final Map<String, dynamic> recipes = cookingData.recipes;
     Map<String, dynamic> suggestions = cookingData.suggestions;
@@ -513,7 +569,7 @@ class _DishButtonState extends State<DishButton> {
               ? Colors.lightGreenAccent
               : Theme.of(context).disabledColor,
         ),
-        color: suggestions.containsKey(widget.dishName)
+        color: suggestions.containsKey(name)
             ? Colors.white
             : Colors.white.withOpacity(0),
         borderRadius: BorderRadius.circular(6.0),
@@ -521,7 +577,7 @@ class _DishButtonState extends State<DishButton> {
       child: Material(
         color: Colors.transparent,
         child: ButtonTheme(
-          colorScheme: suggestions.containsKey(widget.dishName)
+          colorScheme: suggestions.containsKey(name)
               ? ColorScheme.light()
               : ColorScheme.dark(),
           child: InkWell(
@@ -531,16 +587,33 @@ class _DishButtonState extends State<DishButton> {
               child: AnimatedDefaultTextStyle(
                 duration: Duration(milliseconds: 200),
                 style: Theme.of(context).textTheme.subhead.copyWith(
-                      color: suggestions.containsKey(widget.dishName)
+                      color: suggestions.containsKey(name)
                           ? Colors.green
                           : Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
-                child: Text(widget.dishName),
+                child: Text(name),
               ),
             ),
-            onLongPress: () {
-              showGeneralDialog(
+            onLongPress: () async {
+              setState(() {
+                buttonPressed = false;
+              });
+              EditRecipeData editRecipeData =
+                  Provider.of<EditRecipeData>(context);
+              Future.delayed(Duration(milliseconds: 200), () async {
+                String encodedData = await compute(
+                  encode,
+                  cookingData.recipes[name],
+                );
+                List<Map<String, dynamic>> decodedData = await compute(
+                  decode,
+                  encodedData,
+                );
+                editRecipeData.changeName(name);
+                editRecipeData.addAllIngredients(decodedData);
+              });
+              await showGeneralDialog(
                 barrierLabel: 'Dismiss',
                 barrierDismissible: true,
                 transitionDuration: Duration(milliseconds: 200),
@@ -576,7 +649,7 @@ class _DishButtonState extends State<DishButton> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Text(
-                                widget.dishName,
+                                name,
                                 style: Theme.of(context)
                                     .textTheme
                                     .display1
@@ -595,28 +668,43 @@ class _DishButtonState extends State<DishButton> {
                                     .subhead
                                     .copyWith(
                                       fontSize: 18,
-                                      color: Colors.black87,
+                                      color: Color.lerp(Colors.black87, kCookingColor1, 0.1),
                                       fontWeight: FontWeight.bold,
                                     ),
                               ),
                               const SizedBox(
                                 height: 8,
                               ),
-                              for (dynamic ingredient
-                                  in recipes[widget.dishName])
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 6),
-                                  child: Text(
-                                    '${ingredient['value']} ${ingredient['unit']}${ingredient['unit'] == '' ? '' : ' of '}${ingredient['name']}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .subhead
-                                        .copyWith(
-                                          fontSize: 18,
-                                          color: Colors.black87,
-                                        ),
+                              if (recipes.containsKey(name))
+                                for (var ingredient in recipes[name])
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 6),
+                                    child: Text(
+                                      '${ingredient['value']} ${ingredient['unit']}${ingredient['unit'] == '' ? '' : ' of '}${ingredient['name']}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .subhead
+                                          .copyWith(
+                                            fontSize: 18,
+                                            color: Colors.black87,
+                                          ),
+                                    ),
+                                  )
+                              else
+                                for (var ingredient in editRecipeData.recipe)
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 6),
+                                    child: Text(
+                                      '${ingredient['value']} ${ingredient['unit']}${ingredient['unit'] == '' ? '' : ' of '}${ingredient['name']}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .subhead
+                                          .copyWith(
+                                            fontSize: 18,
+                                            color: Colors.black87,
+                                          ),
+                                    ),
                                   ),
-                                ),
                               const SizedBox(
                                 height: 8,
                               ),
@@ -652,15 +740,36 @@ class _DishButtonState extends State<DishButton> {
                                     ],
                                   ),
                                 ),
-                                onPressed: () {
-                                  Navigator.push(
+                                onPressed: () async {
+                                  EditRecipeData editRecipeData =
+                                      Provider.of<EditRecipeData>(context);
+                                  if (resetDataTimer != null) {
+                                    resetDataTimer.cancel();
+                                    editRecipeData.resetData();
+                                    resetDataTimer = null;
+                                  }
+                                  if (editRecipeData.name != name) {
+                                    var recipe =
+                                        List<Map<String, dynamic>>.from(
+                                            cookingData.recipes[name]);
+                                    editRecipeData.changeName(name);
+                                    editRecipeData.addAllIngredients(recipe);
+                                  }
+                                  await Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         fullscreenDialog: true,
                                         builder: (_) => EditRecipeScreen(
-                                              dishName: widget.dishName,
+                                              dishName: name,
                                             ),
                                       ));
+                                  name = editRecipeData.name;
+                                  resetDataTimer =
+                                      Timer(Duration(milliseconds: 300), () {
+                                    editRecipeData.resetData();
+                                  });
+                                  if (!recipes.containsKey(name))
+                                    Navigator.pop(context);
                                 },
                               ),
                             ],
@@ -669,9 +778,7 @@ class _DishButtonState extends State<DishButton> {
                       ),
                     ),
               );
-              setState(() {
-                buttonPressed = false;
-              });
+              editRecipeData.resetData();
             },
             onTapCancel: () {
               setState(() {
@@ -687,10 +794,10 @@ class _DishButtonState extends State<DishButton> {
               setState(() {
                 buttonPressed = false;
               });
-              if (suggestions.containsKey(widget.dishName))
+              if (suggestions.containsKey(name))
                 suggestions = {};
               else {
-                final List<dynamic> ingredients = recipes[widget.dishName];
+                final List<dynamic> ingredients = recipes[name];
                 final List<dynamic> updatedIngredients =
                     ingredients.map((item) {
                   num newIngredientValue = num.parse(
@@ -702,7 +809,7 @@ class _DishButtonState extends State<DishButton> {
                     'unit': item['unit'],
                   };
                 }).toList();
-                suggestions = {widget.dishName: updatedIngredients};
+                suggestions = {name: updatedIngredients};
               }
               cookingData.changeSuggestions(suggestions);
             },
@@ -719,47 +826,63 @@ class CookingThirdScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     Map<String, dynamic> suggestions =
         Provider.of<CookingData>(context).suggestions;
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(0, MediaQuery.of(context).padding.top, 0,
           MediaQuery.of(context).padding.bottom + 48),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: <Widget>[
-          Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: MediaQuery.of(context).size.width / 10),
-            alignment: Alignment.center,
-            child: Text(
-              "Here's how much you should eat:",
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.display2.copyWith(
-                    color: Colors.white,
-                  ),
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: MediaQuery.of(context).size.width / 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                if (suggestions.length > 0)
-                  for (dynamic ingredient in suggestions.values.toList()[0])
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: 6),
-                      child: Text(
-                        '${ingredient['value']} ${ingredient['unit']}${ingredient['unit'] == '' ? '' : ' of '}${ingredient['name']}',
-                        style: Theme.of(context).textTheme.display1.copyWith(
-                              height: 0.8,
-                              fontSize: 24,
-                              color: Colors.white,
-                            ),
-                      ),
+      child: Container(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height -
+              MediaQuery.of(context).padding.top -
+              MediaQuery.of(context).padding.bottom -
+              48,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: <Widget>[
+            Container(
+              padding: EdgeInsets.fromLTRB(
+                MediaQuery.of(context).size.width / 10,
+                32,
+                MediaQuery.of(context).size.width / 10,
+                16,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                "Here's how much you should eat:",
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.display2.copyWith(
+                      color: Colors.white,
                     ),
-              ],
+              ),
             ),
-          ),
-        ],
+            Container(
+              padding: EdgeInsets.fromLTRB(
+                MediaQuery.of(context).size.width / 10,
+                16,
+                MediaQuery.of(context).size.width / 10,
+                48,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  if (suggestions.length > 0)
+                    for (dynamic ingredient in suggestions.values.toList()[0])
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 6),
+                        child: Text(
+                          '${ingredient['value']} ${ingredient['unit']}${ingredient['unit'] == '' ? '' : ' of '}${ingredient['name']}',
+                          style: Theme.of(context).textTheme.display1.copyWith(
+                                height: 0.8,
+                                fontSize: 24,
+                                color: Colors.white,
+                              ),
+                        ),
+                      ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

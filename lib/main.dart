@@ -6,8 +6,10 @@ import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'cooking.dart';
 import 'eatingOut.dart';
+import 'editRecipe.dart';
 import 'cookingDebug.dart';
 import 'eatingOutDebug.dart';
+import 'cookingRecipesDebug.dart';
 
 const Color kColor1 = Color(0xFFDA4453);
 const Color kColor2 = Color(0xFF89216B);
@@ -28,6 +30,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           builder: (_) => EatingOutData(),
         ),
+        ChangeNotifierProvider(
+          builder: (_) => EditRecipeData(),
+        )
       ],
       child: MaterialApp(
         title: 'iHungry',
@@ -101,7 +106,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
       if (cookingRecipesFile.existsSync()) {
         Map<String, dynamic> cookingRecipes =
             jsonDecode(cookingRecipesFile.readAsStringSync());
-        cookingData.changeRecipes(cookingRecipes);
+        cookingData.changeRecipes(cookingRecipes, initial: true);
       } else {
         Map<String, dynamic> cookingRecipes = cookingData.recipes;
         cookingRecipesFile.writeAsStringSync(jsonEncode(cookingRecipes));
@@ -159,6 +164,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
     final bool showCookingScreen = homeCode == 1 || previousHomeCode == 1;
     final bool showEatingOutScreen = homeCode == 2 || previousHomeCode == 2;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       endDrawer: Drawer(
         child: ListView(
           children: <Widget>[
@@ -191,6 +197,25 @@ class _HomeState extends State<Home> with TickerProviderStateMixin {
                   context,
                   MaterialPageRoute(
                     builder: (_) => CookingDebugScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.restaurant_menu),
+              title: Text(
+                'View Cooking Recipes',
+                style: Theme.of(context).textTheme.body1.copyWith(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CookingRecipesDebugScreen(),
                   ),
                 );
               },

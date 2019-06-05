@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+const Color kCookingColor1 = Color(0xFF56AB2F);
 
 SliderThemeData customSliderTheme(BuildContext context) =>
     SliderTheme.of(context).copyWith(
@@ -12,7 +13,7 @@ SliderThemeData customSliderTheme(BuildContext context) =>
       valueIndicatorTextStyle: TextStyle(
         fontFamily: 'Kayak Sans',
         fontSize: 17.0,
-        color: Colors.black87,
+        color: Color.lerp(Colors.black87, kCookingColor1, 0.1),
         fontWeight: FontWeight.bold,
       ),
       tickMarkShape: CustomSliderTick(),

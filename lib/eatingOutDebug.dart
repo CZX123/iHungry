@@ -5,13 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'eatingOut.dart';
 
-class EatingOutDebugScreen extends StatefulWidget {
-  EatingOutDebugScreen();
-
-  _EatingOutDebugScreenState createState() => _EatingOutDebugScreenState();
-}
-
-class _EatingOutDebugScreenState extends State<EatingOutDebugScreen> {
+class EatingOutDebugScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     EatingOutData eatingOutData = Provider.of<EatingOutData>(context);
@@ -59,8 +53,9 @@ class _EatingOutDebugScreenState extends State<EatingOutDebugScreen> {
                     if (cookingFile.existsSync()) {
                       Map<String, dynamic> cookingFileContents =
                           jsonDecode(cookingFile.readAsStringSync());
-                      if (cookingFileContents['history'].length > 0) lastMeal = DateTime.parse(
-                          cookingFileContents['history'].keys.toList().last);
+                      if (cookingFileContents['history'].length > 0)
+                        lastMeal = DateTime.parse(
+                            cookingFileContents['history'].keys.toList().last);
                     }
                     Map<String, double> eatingOutFileContents = {};
                     eatingOutFile

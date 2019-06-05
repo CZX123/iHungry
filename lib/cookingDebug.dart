@@ -6,13 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'cooking.dart';
 import 'eatingOut.dart';
 
-class CookingDebugScreen extends StatefulWidget {
-  CookingDebugScreen();
-
-  _CookingDebugScreenState createState() => _CookingDebugScreenState();
-}
-
-class _CookingDebugScreenState extends State<CookingDebugScreen> {
+class CookingDebugScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     CookingData cookingData = Provider.of<CookingData>(context);
@@ -117,8 +111,31 @@ class _CookingDebugScreenState extends State<CookingDebugScreen> {
                                                   padding:
                                                       const EdgeInsets.only(
                                                           left: 16),
-                                                  child: Text(
-                                                      '$k: ${cookingFileContents['history'][i]['suggestions'][k]}'),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: <Widget>[
+                                                      Text('$k:'),
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .only(left: 16),
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: <Widget>[
+                                                            for (var l in cookingFileContents[
+                                                                    'history'][i]
+                                                                [
+                                                                'suggestions'][k])
+                                                              Text('${l['value']} ${l['unit']}${l['unit'] == '' ? '' : ' of '}${l['name']}'),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
                                             ],
                                           )
